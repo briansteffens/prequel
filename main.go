@@ -14,6 +14,7 @@ import (
 type Connection struct {
 	Driver   string `json:"driver"`
 	Host     string `json:"host"`
+	Port     int    `json:"port"`
 	User     string `json:"user"`
 	Password string `json:"password"`
 	Database string `json:"database"`
@@ -100,7 +101,7 @@ func connect(conn Connection) (*sql.DB, error) {
 		dsn += "@"
 	}
 
-	dsn += conn.Host
+	dsn += fmt.Sprintf("tcp(%s:%d)", conn.Host, conn.Port)
 
 	if conn.Database != "" {
 		dsn += "/" + conn.Database
