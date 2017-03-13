@@ -11,6 +11,9 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+const minColumnWidth int = 5
+const maxColumnWidth int = 25
+
 type Connection struct {
 	Driver   string `json:"driver"`
 	Host     string `json:"host"`
@@ -63,13 +66,6 @@ func runQuery() {
 		valuePointers[i] = &values[i]
 	}
 
-	columns := make([]tui.Column, len(columnNames))
-
-	for i := 0; i < len(columnNames); i++ {
-		columns[i].Name = columnNames[i]
-		columns[i].Width = 15
-	}
-
 	rows := make([][]string, 0)
 
 	for res.Next() {
@@ -84,6 +80,32 @@ func runQuery() {
 		}
 
 		rows = append(rows, row)
+	}
+
+	columns := make([]tui.Column, len(columnNames))
+
+	for i := 0; i < len(columnNames); i++ {
+		columns[i].Name = columnNames[i]
+
+		width := len(columns[i].Name)
+
+		for _, row := range rows {
+			if len(row[i]) > width {
+				width = len(row[i])
+			}
+		}
+
+		width++
+
+		if width < minColumnWidth {
+			width = minColumnWidth
+		}
+
+		if width > maxColumnWidth {
+			width = maxColumnWidth
+		}
+
+		columns[i].Width = width
 	}
 
 	results.Columns = columns
