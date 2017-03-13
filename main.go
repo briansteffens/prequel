@@ -2,12 +2,22 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"encoding/json"
 	"database/sql"
 	"github.com/nsf/termbox-go"
 	"github.com/briansteffens/escapebox"
 	"github.com/briansteffens/tui"
 	_ "github.com/go-sql-driver/mysql"
 )
+
+type Connection struct {
+	Driver   string `json:"driver"`
+	Host     string `json:"host"`
+	User     string `json:"user"`
+	Password string `json:"password"`
+	Database string `json:"database"`
+}
 
 var db        *sql.DB
 var editor    tui.EditBox
@@ -79,13 +89,39 @@ func runQuery() {
 	results.Rows = rows
 }
 
+func connect(conn Connection) (*sql.DB, error) {
+	dsn := conn.User
+
+	if conn.Password != "" {
+		dsn += ":" + conn.Password
+	}
+
+	if dsn != "" {
+		dsn += "@"
+	}
+
+	dsn += conn.Host
+
+	if conn.Database != "" {
+		dsn += "/" + conn.Database
+	}
+
+	return sql.Open(conn.Driver, dsn)
+}
+
 func main() {
 	tui.Init()
 	defer tui.Close()
 
-	var err error
+	configBytes, err := ioutil.ReadFile("config.json")
+	if err != nil {
+		panic(err)
+	}
 
-	db, err = sql.Open("mysql", "root@/litgraph")
+	connection := Connection{}
+	json.Unmarshal(configBytes, &connection)
+
+	db, err = connect(connection)
 	if err != nil {
 		panic(err)
 	}

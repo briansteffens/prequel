@@ -1,0 +1,7 @@
+{
+	"driver": "mysql",
+	"host": "",
+	"user": "root",
+	"password": "",
+	"database": "litgraph"
+}
