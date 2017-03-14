@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"encoding/json"
@@ -14,6 +15,8 @@ import (
 const minColumnWidth int = 5
 const maxColumnWidth int = 25
 
+const cursorStatementColor termbox.Attribute = termbox.Attribute(240)
+
 type Connection struct {
 	Driver   string `json:"driver"`
 	Host     string `json:"host"`
@@ -23,11 +26,18 @@ type Connection struct {
 	Database string `json:"database"`
 }
 
-var db        *sql.DB
-var editor    tui.EditBox
-var results   tui.DetailView
-var container tui.Container
-var status    tui.Label
+type Statement struct {
+	start  int
+	length int
+}
+
+var db         *sql.DB
+var editor     tui.EditBox
+var results    tui.DetailView
+var container  tui.Container
+var status     tui.Label
+var statements []Statement
+var statement  Statement
 
 func resizeHandler() {
 	editor.Bounds.Width = container.Width
@@ -45,9 +55,17 @@ func runQuery() {
 	results.Columns = []tui.Column{}
 	results.Rows = [][]string{}
 
-	tui.Log(editor.GetText())
+	query := ""
+	for i := statement.start; i < statement.start + statement.length; i++ {
+		tui.Log("%d", i)
+		ch, err := editor.GetChar(i)
+		if err != nil {
+			panic(err)
+		}
+		query += string(ch.Char)
+	}
 
-	res, err := db.Query(editor.GetText())
+	res, err := db.Query(query)
 	if err != nil {
 		status.Text = fmt.Sprintf("%s", err)
 		return
@@ -146,6 +164,23 @@ func charStream(e *tui.EditBox) []*tui.Char {
 	return ret
 }
 
+func cursorInWhichStatement(cur int, ss []Statement) (Statement, error) {
+	for _, s := range ss {
+		if cur > s.start + s.length - 1 {
+			continue
+		}
+
+		return s, nil
+	}
+
+	// Default to last statement if there is one
+	if len(ss) > 0 {
+		return ss[len(ss) - 1], nil
+	}
+
+	return Statement {}, errors.New("Cursor not in statement")
+}
+
 func colorizer(e *tui.EditBox) {
 	chars := charStream(e)
 
@@ -157,6 +192,9 @@ func colorizer(e *tui.EditBox) {
 	const quoteNone   rune = 0
 	const quoteSingle rune = '\''
 	const quoteDouble rune = '"'
+
+	statements = []Statement {}
+	statementStart := 0
 
 	// Loop over all chars plus one. i is always the index of 'next' so
 	// the loop is basically running one char ahead. Run one extra time
@@ -210,14 +248,25 @@ func colorizer(e *tui.EditBox) {
 			quoteStartIndex = i
 		}
 
-		// Handling of cur
+		// Handle current character -----------------------------------
+
+		// Statements end at unquoted semi-colons and EOF
+		if next == nil || quote == quoteNone && cur.Char == ';' {
+			statements = append(statements, Statement {
+				start: statementStart,
+				length: i - statementStart,
+			})
+			statementStart = i
+		}
+
+		// Color quotes
 		if quote != quoteNone {
 			cur.Fg = termbox.ColorGreen
 		} else {
 			cur.Fg = termbox.ColorWhite
 		}
 
-		// Debug logging
+		// Debug logging ----------------------------------------------
 		prevS := "nil"
 		if prev != nil {
 			prevS = string(prev.Char)
@@ -251,7 +300,7 @@ func colorizer(e *tui.EditBox) {
 		tui.Log("%s\t%s\t%s\t%s\t%s %s", prevS, curS, nextS,
 			quoteS, curEscapedS, nextEscapedS)
 
-		// Post-handling
+		// Post-handling ----------------------------------------------
 
 		// End quote
 		if isCurQuote && quote != quoteNone && !quoteToggledThisLoop &&
@@ -260,6 +309,23 @@ func colorizer(e *tui.EditBox) {
 		}
 
 		curEscaped = nextEscaped
+	}
+
+	for _, s := range statements {
+		tui.Log("statement start=%d length=%d", s.start, s.length)
+	}
+
+	statement, _ = cursorInWhichStatement(e.GetCursor(), statements)
+
+	tui.Log("cursor in statement: %d", statement.start)
+
+	for i := 0; i < len(chars); i++ {
+		if i >= statement.start &&
+		   i < statement.start + statement.length {
+			chars[i].Bg = cursorStatementColor
+		} else {
+			chars[i].Bg = termbox.ColorBlack
+		}
 	}
 }
 
@@ -288,8 +354,9 @@ func main() {
 
 	editor = tui.EditBox {
 		OnTextChanged: colorizer,
+		OnCursorMoved: colorizer,
 	}
-	editor.SetText("a'b\\'c''d'e")
+	editor.SetText("select * from authors;\nselect * from books;")
 
 	results = tui.DetailView {
 		Columns: []tui.Column {},
