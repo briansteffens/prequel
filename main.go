@@ -132,6 +132,137 @@ func connect(conn Connection) (*sql.DB, error) {
 	return sql.Open(conn.Driver, dsn)
 }
 
+func charStream(e *tui.EditBox) []*tui.Char {
+	ret := []*tui.Char {}
+
+	for l := 0; l < len(e.Lines); l++ {
+		line := &e.Lines[l]
+
+		for c := 0; c < len(*line); c++ {
+			ret = append(ret, &(*line)[c])
+		}
+	}
+
+	return ret
+}
+
+func colorizer(e *tui.EditBox) {
+	chars := charStream(e)
+
+	var prev, cur, next *tui.Char
+	var curEscaped, nextEscaped bool
+	var quote rune
+	var quoteStartIndex int
+
+	const quoteNone   rune = 0
+	const quoteSingle rune = '\''
+	const quoteDouble rune = '"'
+
+	// Loop over all chars plus one. i is always the index of 'next' so
+	// the loop is basically running one char ahead. Run one extra time
+	// to process the last character, which at that point will be in cur.
+	for i := 0; i <= len(chars); i++ {
+		prev = cur
+		cur = next
+
+		if i < len(chars) {
+			next = chars[i]
+		} else {
+			next = nil
+		}
+
+		// Skip first iteration because cur won't be set yet.
+		if cur == nil {
+			continue
+		}
+
+		// Is the next character:
+		//   - Preceded by a slash
+		nextSlashEscaped := next != nil && cur.Char == '\\'
+
+		// Is the next character:
+		//   - A quote char of the same type as the quote it's inside
+		//   - Preceded by another of the same quote char type
+		//   - Not the second character in a quote
+		nextDoubleEscaped := next != nil && next.Char == quote &&
+				     cur.Char == quote && quoteStartIndex < i
+
+		// Is the next character:
+		//   - Either slash- or double-escaped
+		//   - Not preceded by another escaped character
+		nextEscaped = !curEscaped &&
+			      (nextSlashEscaped || nextDoubleEscaped)
+
+		// Is the current character:
+		//   - A quote char
+		//   - Not escaped
+		//   - Not the first in a double-escaped sequence ('' or "")
+		isCurQuote := !curEscaped && !nextDoubleEscaped &&
+			      (cur.Char == quoteSingle ||
+			       cur.Char == quoteDouble)
+
+		quoteToggledThisLoop := false
+
+		// Start of a quote
+		if isCurQuote && quote == quoteNone {
+			quote = cur.Char
+			quoteToggledThisLoop = true
+			quoteStartIndex = i
+		}
+
+		// Handling of cur
+		if quote != quoteNone {
+			cur.Fg = termbox.ColorGreen
+		} else {
+			cur.Fg = termbox.ColorWhite
+		}
+
+		// Debug logging
+		prevS := "nil"
+		if prev != nil {
+			prevS = string(prev.Char)
+		}
+
+		curS := "nil"
+		if cur != nil {
+			curS = string(cur.Char)
+		}
+
+		nextS := "nil"
+		if next != nil {
+			nextS = string(next.Char)
+		}
+
+		quoteS := "nil"
+		if quote != quoteNone {
+			quoteS = string(quote)
+		}
+
+		curEscapedS := ""
+		if curEscaped {
+			curEscapedS = "curEscaped"
+		}
+
+		nextEscapedS := ""
+		if nextEscaped {
+			nextEscapedS = "nextEscaped"
+		}
+
+		tui.Log("%s\t%s\t%s\t%s\t%s %s", prevS, curS, nextS,
+			quoteS, curEscapedS, nextEscapedS)
+
+		// Post-handling
+
+		// End quote
+		if isCurQuote && quote != quoteNone && !quoteToggledThisLoop &&
+		   quote == cur.Char {
+			quote = quoteNone
+		}
+
+		curEscaped = nextEscaped
+	}
+}
+
 func main() {
 	tui.Init()
 	defer tui.Close()
@@ -156,10 +287,9 @@ func main() {
 	}
 
 	editor = tui.EditBox {
-		Lines: []string {
-			"select * from authors;",
-		},
+		OnTextChanged: colorizer,
 	}
+	editor.SetText("a'b\\'c''d'e")
 
 	results = tui.DetailView {
 		Columns: []tui.Column {},
