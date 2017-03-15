@@ -99,7 +99,11 @@ func runQuery() {
 		row := make([]string, len(columnNames))
 
 		for i := 0; i < len(columnNames); i++ {
-			row[i] = fmt.Sprintf("%s", values[i])
+			val := "null"
+			if values[i] != nil {
+				val = fmt.Sprintf("%s", values[i])
+			}
+			row[i] = val
 		}
 
 		rows = append(rows, row)
