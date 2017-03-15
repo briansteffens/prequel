@@ -203,6 +203,10 @@ func logChar(c *tui.Char) string {
 	return string(c.Char)
 }
 
+func isWhiteSpace(r rune) bool {
+	return r != ' ' && r != '\t' && r != '\n'
+}
+
 func highlighter(e *tui.EditBox) {
 	const quoteNone   rune = 0
 	const quoteSingle rune = '\''
@@ -303,11 +307,21 @@ func highlighter(e *tui.EditBox) {
 
 		// Statements end at unquoted semi-colons and EOF
 		if next == nil || quote == quoteNone && cur.Char == ';' {
-			statements = append(statements, Statement {
+			newStatement := Statement {
 				start: statementStart,
 				length: i - statementStart,
-			})
+			}
+
 			statementStart = i
+
+			// Statements should include a trailing newline if
+			// present.
+			if next != nil && next.Char == '\n' {
+				newStatement.length++
+				statementStart++
+			}
+
+			statements = append(statements, newStatement)
 		}
 
 		// Color quotes
@@ -335,9 +349,10 @@ func highlighter(e *tui.EditBox) {
 
 		wordS := strings.Replace(word, "\n", "\\n", -1)
 
-		tui.Log("%s\t%s\t%s\t%s\t%s\t%s %s", logChar(prev),
+		tui.Log("%s\t%s\t%s\t%s\t%d\t%d\t%s\t%s %s", logChar(prev),
 			logChar(cur), logChar(next),
-			quoteS, wordS, curEscapedS, nextEscapedS)
+			quoteS, statementStart, len(statements), wordS,
+			curEscapedS, nextEscapedS)
 
 		// Post-handling ----------------------------------------------
 
