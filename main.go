@@ -386,6 +386,15 @@ func highlighter(e *tui.EditBox) {
 	}
 }
 
+func handleContainerEvent(c *tui.Container, ev escapebox.Event) bool {
+	if ev.Type == termbox.EventKey && ev.Key == termbox.KeyF5 {
+		runQuery()
+		return true
+	}
+
+	return false
+}
+
 func main() {
 	initKeywords()
 
@@ -431,54 +440,15 @@ func main() {
 	container = tui.Container {
 		Controls: []tui.Control {&results, &editor, &status},
 		ResizeHandler: resizeHandler,
+		KeyBindingExit: tui.KeyBinding { Key: termbox.KeyCtrlC },
+		KeyBindingFocusNext: tui.KeyBinding { Key: termbox.KeyTab },
+		KeyBindingFocusPrevious: tui.KeyBinding {
+			Seq: tui.SeqShiftTab,
+		},
+		HandleEvent: handleContainerEvent,
 	}
 
-	// TODO: rework tui.MainLoop() into this?
-	c := &container
-	c.FocusNext()
-
-	c.Width, c.Height = termbox.Size()
-	c.ResizeHandler()
-
-	c.Refresh()
-
-	loop: for {
-		ev := escapebox.PollEvent()
-
-		handled := false
-
-		switch ev.Seq {
-		case escapebox.SeqNone:
-			switch ev.Type {
-			case termbox.EventResize:
-				c.Width = ev.Width
-				c.Height = ev.Height
-
-				if c.ResizeHandler != nil {
-					c.ResizeHandler()
-				}
-			case termbox.EventKey:
-				switch ev.Key {
-				case termbox.KeyCtrlC:
-					break loop
-				case termbox.KeyTab:
-					c.FocusNext()
-					handled = true
-				case termbox.KeyF5:
-					runQuery()
-				}
-			}
-		case tui.SeqShiftTab:
-			c.FocusPrevious()
-			handled = true
-		}
-
-		if !handled && c.Focused != nil {
-			c.Focused.HandleEvent(ev)
-		}
-
-		c.Refresh()
-	}
+	tui.MainLoop(&container)
 }
 
 func initKeywords() {
