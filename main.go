@@ -57,8 +57,7 @@ func resizeHandler() {
 }
 
 func runQuery() {
-	results.Columns = []tui.Column{}
-	results.Rows = [][]string{}
+	results.Reset()
 
 	query := ""
 	for i := statement.start; i < statement.start + statement.length; i++ {
