@@ -154,6 +154,7 @@ func handleContainerEvent(c *tui.Container, ev escapebox.Event) bool {
 
 func runQuery() {
 	results.Reset()
+	status.Text = ""
 
 	query := ""
 	for i := statement.start; i < statement.start + statement.length; i++ {
@@ -264,7 +265,9 @@ func main() {
 		OnTextChanged: lineHighlighter,
 		OnCursorMoved: lineHighlighter,
 	}
-	editor.SetText("select * from authors;\nselect * from books;")
+	editor.SetText("select b.*, a.*, 'hi', 'there', 'more', 'data'\n" +
+		       "from books b\n" +
+		       "left join authors a on b.author_id = a.id\n;")
 
 	results = tui.DetailView {
 		Columns: []tui.Column {},
