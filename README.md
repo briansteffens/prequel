@@ -1,7 +1,9 @@
 prequel
 =======
 
-A MySQL query editor for the terminal.
+A MySQL query editor with syntax highlighting for the terminal.
+
+![Prequel screenshot](https://s3.amazonaws.com/briansteffens/prequel.png)
 
 # Downloading and compiling
 
