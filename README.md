@@ -3,7 +3,7 @@ prequel
 
 A MySQL query editor with syntax highlighting for the terminal.
 
-![Prequel screenshot](https://s3.amazonaws.com/briansteffens/prequel.png)
+![Prequel screenshot](https://s3.amazonaws.com/briansteffens/prequel2.png)
 
 # Downloading and compiling
 
