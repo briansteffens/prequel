@@ -237,9 +237,6 @@ func runQuery() {
 }
 
 func main() {
-	tui.Init()
-	defer tui.Close()
-
 	configBytes, err := ioutil.ReadFile("config.json")
 	if err != nil {
 		panic(err)
@@ -247,6 +244,18 @@ func main() {
 
 	connection := Connection{}
 	json.Unmarshal(configBytes, &connection)
+
+	if connection.Driver == "" {
+		fmt.Println("Error: config.json is missing the 'driver' " +
+			    "field");
+		return;
+	}
+
+	if connection.Database == "" {
+		fmt.Println("Error: config.json is missing the 'database' " +
+			    "field");
+		return;
+	}
 
 	db, err = connect(connection)
 	if err != nil {
@@ -258,6 +267,9 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	tui.Init()
+	defer tui.Close()
 
 	editor = tui.EditBox {
 		Highlighter:   tui.BasicHighlighter,
