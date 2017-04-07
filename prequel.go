@@ -17,6 +17,8 @@ const maxColumnWidth int = 25
 
 const cursorStatementColor termbox.Attribute = termbox.Attribute(237)
 
+const tempSqlFile string = "prequel.sql"
+
 type Connection struct {
 	Driver   string `json:"driver"`
 	Host     string `json:"host"`
@@ -86,6 +88,15 @@ func cursorInWhichStatement(cur int, ss []Statement) (Statement, error) {
 	}
 
 	return Statement {}, errors.New("Cursor not in statement")
+}
+
+func editorTextChanged(e *tui.EditBox) {
+	err := ioutil.WriteFile(tempSqlFile, []byte(e.GetText()), 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	lineHighlighter(e)
 }
 
 func lineHighlighter(e *tui.EditBox) {
@@ -268,18 +279,22 @@ func main() {
 		panic(err)
 	}
 
+	tempSql := "show tables;"
+	tempSqlBytes, err := ioutil.ReadFile(tempSqlFile)
+	if err == nil {
+		tempSql = string(tempSqlBytes);
+	}
+
 	tui.Init()
 	defer tui.Close()
 
 	editor = tui.EditBox {
 		Highlighter:   tui.BasicHighlighter,
 		Dialect:       tui.DialectMySQL,
-		OnTextChanged: lineHighlighter,
+		OnTextChanged: editorTextChanged,
 		OnCursorMoved: lineHighlighter,
 	}
-	editor.SetText("select b.*, a.*, 'hi', 'there', 'more', 'data'\n" +
-		       "from books b\n" +
-		       "left join authors a on b.author_id = a.id\n;")
+	editor.SetText(tempSql)
 
 	results = tui.DetailView {
 		Columns: []tui.Column {},
