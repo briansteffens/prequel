@@ -176,8 +176,6 @@ func runQuery() {
 		query += string(ch.Char)
 	}
 
-	tui.Log(query)
-
 	res, err := db.Query(query)
 	if err != nil {
 		status.Text = fmt.Sprintf("%s", err)
