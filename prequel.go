@@ -252,7 +252,11 @@ func main() {
 	}
 
 	connection := Connection{}
-	json.Unmarshal(configBytes, &connection)
+	err = json.Unmarshal(configBytes, &connection)
+	if err != nil {
+		fmt.Println("Error: config.json, invalid json")
+		panic(err)
+	}
 
 	if connection.Driver == "" {
 		fmt.Println("Error: config.json is missing the 'driver' " +
